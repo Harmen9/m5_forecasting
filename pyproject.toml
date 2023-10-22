@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "m5-forecasting"
+version = "0.1.0"
+description = "Python package used for the Kaggle m5_forecasting competition"
+authors = ["Harmen <harmen.kerkenaar@qbis.ch>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "<3.13,>=3.10"
+pandas = "^2.1.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
