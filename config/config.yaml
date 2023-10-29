@@ -1,0 +1,5 @@
+path_structure:
+  input_path: "input"
+  config_path: "config"
+  code_path: "code"
+  output_path: "output"
