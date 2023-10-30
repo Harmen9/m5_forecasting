@@ -1,2 +1,6 @@
+# Ignore big data files
 *.csv
+# Ignore logs
 *.log
+# Ignore Pycache
+*.pyc
