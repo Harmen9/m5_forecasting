@@ -14,8 +14,17 @@ if config_path.exists():
 if config_dict is None:
     raise FileNotFoundError("Missing config/struct.yaml file")
 
-paths = Paths(**config_dict['path_structure'])
-home_dir = Path().cwd()
-input_folder = home_dir / 'input'
-sample_submission = pd.read_csv(input_folder / 'sample_submission.csv')
-sample_submission.head(10)
+paths: Path = Paths(**config_dict['path_structure'])
+home_dir: Path = Path().cwd()
+input_folder: Path = home_dir / 'input'
+train_val: pd.DataFrame = pd.read_csv(input_folder / 'sales_train_validation.csv')
+
+
+# Transformation
+pd.melt(
+    train_val,
+        id_vars=['id', 'item_id', 'dept_id', 'cat_id', 'state_id'],
+        value_vars=['B'],
+        var_name='myVarname',
+        value_name='myValname')
+train_val.melt()
