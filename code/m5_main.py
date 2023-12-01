@@ -1,9 +1,10 @@
 import yaml 
 import pandas as pd
 from pathlib import Path
+import lightgbm as lgb
 from sklearn.model_selection import train_test_split
 
-from classes import Paths
+from classes import Paths, TsPreproc
 
 # Read config file
 config_dict = None
@@ -30,18 +31,58 @@ store_mask: pd.Series = train_val['store_id'] == 'CA_1'
 train_val: pd.DataFrame = train_val[store_mask]
 del store_mask
 index_columns: list = ['id', 'item_id', 'dept_id', 'cat_id', 'store_id', 'state_id']
+train_val: TsPreproc = TsPreproc(train_val)
 
-train_val: pd.DataFrame = pd.melt(
-    train_val,
+train_val.melt(
     id_vars=index_columns,
     var_name='d',
     value_name='sales'
-    )
-#train_val: pd.DataFrame = train_val.set_index(index_columns)
-print("test")
+)
 
 # Get lag features
-lags: list = list(range(1, 15))
-for lag in lags:
-    train_val[f'sales_lag_{lag}'] = train_val.groupby(['id'])['sales'].shift(lag)
+train_val.data['d'] = train_val.data['d'].str.replace('d_', '').astype(int)
 
+lags: list = list(range(1, 15))
+train_val.generate_lags(lags=lags, group_by=['id'], lag_column='sales')
+
+TARGET      = 'sales'            
+MAX_D = max(train_val.data['d'])
+TRAIN_SPLIT = 28
+END_TRAIN   = MAX_D - TRAIN_SPLIT
+P_HORIZON   = 28
+X = train_val.data.drop(columns=['id', 'store_id', 'state_id', TARGET])
+
+# Split data 
+mask_train = train_val.data['d']<=END_TRAIN
+valid_mask = mask_train&(train_val.data['d']>(END_TRAIN-P_HORIZON))
+
+y = train_val.data['sales']
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.10, shuffle=False)
+
+
+max_column_number = max(int(col.split("_")[1]) for col in df.columns)
+n = 100
+start_column_number = max_column_number - n
+
+mask_val = [col for col in df.columns if col not in selected_columns]
+
+
+n = 100
+
+# Create test/train set
+lgb_params = {
+    'boosting_type': 'gbdt',
+    'objective': 'tweedie',
+    'tweedie_variance_power': 1.1,
+    'metric': 'rmse',
+    'subsample': 0.5,
+    'subsample_freq': 1,
+    'learning_rate': 0.015,
+    'num_leaves': 2**11-1,
+    'min_data_in_leaf': 2**12-1,
+    'feature_fraction': 0.5,
+    'max_bin': 100,
+    'n_estimators': 3000,
+    'boost_from_average': False,
+    'verbose': -1,
+} 
