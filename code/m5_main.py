@@ -1,60 +1,49 @@
-import yaml 
 import pandas as pd
 from pathlib import Path
 import lightgbm as lgb
 from sklearn.model_selection import train_test_split
 
-from classes import Paths, TsPreproc
+from classes import TsPreproc
+from config import *
 
 # Read config file
-config_dict = None
-config_path: Path = Path().cwd() / "config" / "config.yaml"
-
-if config_path.exists():
-    with open(config_path, encoding="utf-8") as f:
-        config_dict = yaml.safe_load(f)
-
-if config_dict is None:
-    raise FileNotFoundError("Missing config.yaml file")
-
-paths: Path = Paths(**config_dict['path_structure'])
+paths = Paths()
 home_dir: Path = Path().cwd()
-input_folder: Path = home_dir / 'input'
-train_val: pd.DataFrame = pd.read_csv(input_folder / 'sales_train_validation.csv')
-
+train_val: pd.DataFrame = pd.read_csv(paths.INPUT / 'sales_train_validation.csv')
+run_params = globals()['Baseline']() 
 
 # Transformation
 
 # To speed up the training of the data during data exploration only store CA_1 is taken 
 # into account
-store_mask: pd.Series = train_val['store_id'] == 'CA_1'
+store_mask: pd.Series = train_val['store_id'].isin(run_params.stores)
 train_val: pd.DataFrame = train_val[store_mask]
 del store_mask
-index_columns: list = ['id', 'item_id', 'dept_id', 'cat_id', 'store_id', 'state_id']
 train_val: TsPreproc = TsPreproc(train_val)
 
+# Pivot table
 train_val.melt(
-    id_vars=index_columns,
+    id_vars=run_params.index_columns,
     var_name='d',
-    value_name='sales'
+    value_name=run_params.TARGET
 )
 
-# Get lag features
 train_val.data['d'] = train_val.data['d'].str.replace('d_', '').astype(int)
 
-lags: list = list(range(1, 15))
-train_val.generate_lags(lags=lags, group_by=['id'], lag_column='sales')
+# Get lag features
+train_val.generate_lags(
+    lags=run_params.lags,
+    group_by=['id'],
+    lag_column=run_params.TARGET
+    )
 
-TARGET      = 'sales'            
 MAX_D = max(train_val.data['d'])
-TRAIN_SPLIT = 28
-END_TRAIN   = MAX_D - TRAIN_SPLIT
-P_HORIZON   = 28
-X = train_val.data.drop(columns=['id', 'store_id', 'state_id', TARGET])
+END_TRAIN   = MAX_D - run_params.TRAIN_SPLIT
+X = train_val.data.drop(columns=['id', 'store_id', 'state_id', run_params.TARGET])
 
 # Split data 
 mask_train = train_val.data['d']<=END_TRAIN
-valid_mask = mask_train&(train_val.data['d']>(END_TRAIN-P_HORIZON))
+valid_mask = mask_train&(train_val.data['d']>(END_TRAIN-run_params.P_HORIZON))
 
 y = train_val.data['sales']
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.10, shuffle=False)
