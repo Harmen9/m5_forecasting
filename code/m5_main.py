@@ -16,7 +16,7 @@ run_params = globals()['Baseline']()
 
 # To speed up the training of the data during data exploration only store CA_1 is taken 
 # into account
-store_mask: pd.Series = train_val['store_id'].isin(run_params.stores)
+store_mask: pd.Series = train_val['store_id'].isin(run_params.SELECTED_STORES)
 train_val: pd.DataFrame = train_val[store_mask]
 del store_mask
 train_val: TsPreproc = TsPreproc(train_val)
@@ -32,31 +32,35 @@ train_val.data['d'] = train_val.data['d'].str.replace('d_', '').astype(int)
 
 # Get lag features
 train_val.generate_lags(
-    lags=run_params.lags,
+    lags=run_params.LAGS,
     group_by=['id'],
     lag_column=run_params.TARGET
     )
 
-MAX_D = max(train_val.data['d'])
-END_TRAIN   = MAX_D - run_params.TRAIN_SPLIT
-X = train_val.data.drop(columns=['id', 'store_id', 'state_id', run_params.TARGET])
+# Remove 
 
 # Split data 
+MAX_D = max(train_val.data['d'])
+END_TRAIN = MAX_D - run_params.TRAIN_SPLIT
 mask_train = train_val.data['d']<=END_TRAIN
-valid_mask = mask_train&(train_val.data['d']>(END_TRAIN-run_params.P_HORIZON))
 
-y = train_val.data['sales']
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.10, shuffle=False)
+train_data = lgb.Dataset(
+    data=train_val.data.drop(columns=['id', 'store_id', 'state_id', run_params.TARGET])[mask_train],
+    label=train_val.data['sales'][mask_train]
+    )
+val_data = lgb.Dataset(
+    data=train_val.data.drop(columns=['id', 'store_id', 'state_id', run_params.TARGET])[~mask_train],
+    label=train_val.data['sales'][~mask_train]
+    )
+del train_val
+
+#max_column_number = max(int(col.split("_")[1]) for col in df.columns)
+#n = 100
+#start_column_number = max_column_number - n
 
 
-max_column_number = max(int(col.split("_")[1]) for col in df.columns)
-n = 100
-start_column_number = max_column_number - n
 
-mask_val = [col for col in df.columns if col not in selected_columns]
-
-
-n = 100
+num_round = 10
 
 # Create test/train set
 lgb_params = {
@@ -75,3 +79,6 @@ lgb_params = {
     'boost_from_average': False,
     'verbose': -1,
 } 
+num_round = 10
+bst = lgb.train(lgb_params, train_data, num_round, valid_sets=[val_data])
+print("test")
