@@ -6,11 +6,12 @@ from sklearn.model_selection import train_test_split
 from classes import TsPreproc
 from config import *
 
+selected_run_id = 'Baseline'
 # Read config file
 paths = Paths()
 home_dir: Path = Path().cwd()
 train_val: pd.DataFrame = pd.read_csv(paths.INPUT / 'sales_train_validation.csv')
-run_params = globals()['Baseline']() 
+run_params = globals()[selected_run_id]() 
 
 # Transformation
 
@@ -89,4 +90,6 @@ bst = lgb.train(
     train_data,
     categorical_feature=categorical_features,
     valid_sets=[val_data])
+bst.save_model(f'{selected_run_id}.txt')
+
 print("test")
