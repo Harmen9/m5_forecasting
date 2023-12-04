@@ -4,3 +4,5 @@
 *.log
 # Ignore Pycache
 *.pyc
+# output
+output/*
