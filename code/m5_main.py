@@ -37,9 +37,13 @@ train_val.generate_lags(
     lag_column=run_params.TARGET
     )
 
-# Remove 
+categorical_features = ['item_id', 'dept_id', 'cat_id']
+train_val.label_encode(
+    categorical_columns=categorical_features
+    )
 
-# Split data 
+
+# Split data
 MAX_D = max(train_val.data['d'])
 END_TRAIN = MAX_D - run_params.TRAIN_SPLIT
 mask_train = train_val.data['d']<=END_TRAIN
@@ -80,5 +84,9 @@ lgb_params = {
     'verbose': -1,
 } 
 num_round = 10
-bst = lgb.train(lgb_params, train_data, num_round, valid_sets=[val_data])
+bst = lgb.train(
+    lgb_params,
+    train_data,
+    categorical_feature=categorical_features,
+    valid_sets=[val_data])
 print("test")

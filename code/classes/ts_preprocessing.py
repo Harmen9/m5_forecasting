@@ -1,6 +1,6 @@
 import pandas as pd
 from typing import List
-
+from sklearn.preprocessing import LabelEncoder
 
 class TsPreproc:
     data: pd.DataFrame
@@ -22,4 +22,11 @@ class TsPreproc:
         # Drop rows which have Nan in the lags
         lag_columns = [f'{lag_column}_{lag}' for lag in lags]
         self.data.dropna(subset=lag_columns, inplace=True)
+
+    def label_encode(self, categorical_columns: List[str]):
+        label_encoder = LabelEncoder()
+        for col in categorical_columns:
+            self.data[col] = label_encoder.fit_transform(self.data[col])
+
+
 
