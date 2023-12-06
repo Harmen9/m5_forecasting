@@ -1,17 +1,28 @@
+import json
+from datetime import datetime
 import pandas as pd
 from pathlib import Path
 import lightgbm as lgb
-from sklearn.model_selection import train_test_split
 
 from classes import TsPreproc
 from config import *
 
+# Get the current date and time
+current_datetime = datetime.now().strftime("%Y%m%d%H%M")
 selected_run_id = 'Baseline'
+
 # Read config file
 paths = Paths()
-home_dir: Path = Path().cwd()
 train_val: pd.DataFrame = pd.read_csv(paths.INPUT / 'sales_train_validation.csv')
 run_params = globals()[selected_run_id]() 
+
+# Create output folder:
+output_folder = paths.OUTPUT / f"{selected_run_id}_{current_datetime}"
+output_folder.mkdir(parents=True, exist_ok=True)
+
+# Store output parameters
+with open(output_folder / "run_params.json", 'w', encoding="utf-8") as json_file:
+    json.dump(run_params.to_dict(), json_file, indent=4)
 
 # Transformation
 
@@ -59,37 +70,17 @@ val_data = lgb.Dataset(
     )
 del train_val
 
-#max_column_number = max(int(col.split("_")[1]) for col in df.columns)
-#n = 100
-#start_column_number = max_column_number - n
-
-
-
-num_round = 10
-
-# Create test/train set
-lgb_params = {
-    'boosting_type': 'gbdt',
-    'objective': 'tweedie',
-    'tweedie_variance_power': 1.1,
-    'metric': 'rmse',
-    'subsample': 0.5,
-    'subsample_freq': 1,
-    'learning_rate': 0.015,
-    'num_leaves': 2**11-1,
-    'min_data_in_leaf': 2**12-1,
-    'feature_fraction': 0.5,
-    'max_bin': 100,
-    'n_estimators': 3000,
-    'boost_from_average': False,
-    'verbose': -1,
-} 
-num_round = 10
+evals={}
 bst = lgb.train(
-    lgb_params,
+    run_params.lgb_params,
     train_data,
     categorical_feature=categorical_features,
-    valid_sets=[val_data])
-bst.save_model(f'{selected_run_id}.txt')
+    valid_sets=[val_data],
+    callbacks = [lgb.record_evaluation(evals)]
+    )
+bst.save_model(output_folder / f'{selected_run_id}.txt')
+lgb.plot_metric(evals)
+with open(output_folder / "evals.json", 'w', encoding="utf-8") as json_file:
+    json.dump(evals, json_file)
 
 print("test")
