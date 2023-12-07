@@ -3,6 +3,8 @@ from datetime import datetime
 import pandas as pd
 from pathlib import Path
 import lightgbm as lgb
+import wandb
+from wandb.lightgbm import wandb_callback, log_summary
 
 from classes import TsPreproc
 from config import *
@@ -16,6 +18,13 @@ paths = Paths()
 train_val: pd.DataFrame = pd.read_csv(paths.INPUT / 'sales_train_validation.csv')
 run_params = globals()[selected_run_id]() 
 
+wandb.init(
+    # set the wandb project where this run will be logged
+    project="m5_forecasting",
+    
+    # track hyperparameters and run metadata
+    config=run_params.to_dict()
+)
 # Create output folder:
 output_folder = paths.OUTPUT / f"{selected_run_id}_{current_datetime}"
 output_folder.mkdir(parents=True, exist_ok=True)
@@ -69,18 +78,27 @@ val_data = lgb.Dataset(
     label=train_val.data['sales'][~mask_train]
     )
 del train_val
+# Initialize the callback to record evaluation metrics
 
 evals={}
+callbacks = [
+    lgb.record_evaluation(evals),  # `evals` dictionary to store evaluation results
+    wandb_callback()  # W&B callback
+]
 bst = lgb.train(
     run_params.lgb_params,
     train_data,
     categorical_feature=categorical_features,
     valid_sets=[val_data],
-    callbacks = [lgb.record_evaluation(evals)]
+    callbacks=callbacks
     )
+log_summary(bst, save_model_checkpoint=True)
+
 bst.save_model(output_folder / f'{selected_run_id}.txt')
-lgb.plot_metric(evals)
 with open(output_folder / "evals.json", 'w', encoding="utf-8") as json_file:
     json.dump(evals, json_file)
+
+wandb.finish()
+lgb.plot_metric(evals)
 
 print("test")
