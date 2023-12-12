@@ -55,7 +55,15 @@ data_grid.melt(
 )
 
 # Add calendar, only use the first event
-calendar_columns: list[str] = ['wday', 'month', 'year', 'd', 'event_name_1', 'event_type_1']
+calendar_columns: list[str] = [
+    'wday',
+    'month',
+    'year',
+    'wm_yr_wk',
+    'd',
+    'event_name_1',
+    'event_type_1'
+    ]
 calendar_df: pd.DataFrame = pd.read_csv(paths.INPUT / 'calendar.csv')
 data_grid.data = data_grid.data.merge(
     right=calendar_df[calendar_columns],
@@ -63,6 +71,16 @@ data_grid.data = data_grid.data.merge(
     left_on='d',
     right_on='d'
     )
+
+# Add price data
+price_df: pd.DataFrame = pd.read_csv(paths.INPUT / 'sell_prices.csv')
+data_grid.data = data_grid.data.merge(
+    right=price_df,
+    how='left',
+    left_on=['wm_yr_wk', 'store_id', 'item_id'],
+    right_on=['wm_yr_wk', 'store_id', 'item_id']
+    )
+
 
 data_grid.data['d'] = data_grid.data['d'].str.replace('d_', '').astype(int)
 
@@ -100,6 +118,7 @@ train_data = lgb.Dataset(
             'id',
             'store_id',
             'state_id',
+            'wm_yr_wk',
             run_params.TARGET
             ]
         )[mask_train],
@@ -112,6 +131,7 @@ val_data = lgb.Dataset(
             'id',
             'store_id',
             'state_id',
+            'wm_yr_wk',
             run_params.TARGET
             ]
         )[~mask_train],
